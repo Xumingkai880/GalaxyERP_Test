@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+selenium>=4.10.0
+webdriver-manager
+sqlalchemy
+pymysql
+python-multipart
+pillow
+celery
+redis
+python-dotenv
+logging
+allure-pytest
