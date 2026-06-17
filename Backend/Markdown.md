@@ -17,3 +17,8 @@ auto-test-server/
 └── requirements.txt
 ```
 
+
+
+### 启动：
+
+.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000

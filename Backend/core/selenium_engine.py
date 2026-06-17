@@ -22,7 +22,6 @@ from datetime import datetime
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -32,7 +31,6 @@ from selenium.common.exceptions import (
     ElementClickInterceptedException,
     ElementNotInteractableException,
 )
-from webdriver_manager.chrome import ChromeDriverManager
 
 # ---- 直接导入 Page Object ----
 from core.config import BASE_URL, TEST_ACCOUNTS
@@ -87,8 +85,9 @@ class SeleniumRunner:
             "profile.password_manager_enabled": False,
         })
 
-        service = ChromeService(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=service, options=options)
+        # Selenium 4.6+ 内置 Selenium Manager，自动探测本地 Chrome 版本
+        # 并下载匹配的 chromedriver，无需 webdriver-manager
+        self.driver = webdriver.Chrome(options=options)
         self.driver.implicitly_wait(5)
         self.wait = WebDriverWait(self.driver, 15)
 

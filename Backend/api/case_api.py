@@ -39,15 +39,17 @@ def create_case(data: dict, db: Session = Depends(get_db)):
 def list_cases(db: Session = Depends(get_db)):
     """返回全部用例"""
     cases = db.query(TestCase).order_by(TestCase.id.desc()).all()
-    return [
-        {
-            "id": c.id,
-            "case_name": c.case_name,
-            "browser": c.browser,
-            "create_time": str(c.create_time) if c.create_time else None,
-        }
-        for c in cases
-    ]
+    return {
+        "cases": [
+            {
+                "id": c.id,
+                "case_name": c.case_name,
+                "browser": c.browser,
+                "create_time": str(c.create_time) if c.create_time else None,
+            }
+            for c in cases
+        ]
+    }
 
 
 @router.get("/{case_id}")

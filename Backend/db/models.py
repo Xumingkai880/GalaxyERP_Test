@@ -19,8 +19,8 @@ class TestTask(Base):
     status = Column(Integer, default=0) # 0待执行 1运行中 2成功 3失败
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
-    log_path = Column(String(300), nullable=True)
-    report_path = Column(String(300), nullable=True)
+    log_path = Column(Text, nullable=True)
+    report_path = Column(Text, nullable=True)
 
 # 截图表
 class TestScreenshot(Base):

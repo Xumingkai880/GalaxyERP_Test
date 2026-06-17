@@ -79,17 +79,14 @@ def get_task_detail(task_id: int, db: Session = Depends(get_db)):
     )
 
     return {
-        "task": {
-            "id": task.id,
-            "case_id": task.case_id,
-            "status": task.status,
-            "start_time": str(task.start_time) if task.start_time else None,
-            "end_time": str(task.end_time) if task.end_time else None,
-            "log_path": task.log_path,
-            "report_path": task.report_path,
-        },
+        "id": task.id,
+        "case_id": task.case_id,
+        "status": task.status,
+        "start_time": str(task.start_time) if task.start_time else None,
+        "end_time": str(task.end_time) if task.end_time else None,
+        "result_log": task.report_path or task.log_path or "",
         "screenshots": [
-            {"step_index": s.step_index, "img_path": s.img_path}
+            {"step_index": s.step_index, "screenshot_path": s.img_path}
             for s in screenshots
         ],
     }
@@ -104,16 +101,18 @@ def list_tasks(db: Session = Depends(get_db)):
         .limit(50)
         .all()
     )
-    return [
-        {
-            "id": t.id,
-            "case_id": t.case_id,
-            "status": t.status,
-            "start_time": str(t.start_time) if t.start_time else None,
-            "end_time": str(t.end_time) if t.end_time else None,
-        }
-        for t in tasks
-    ]
+    return {
+        "tasks": [
+            {
+                "id": t.id,
+                "case_id": t.case_id,
+                "status": t.status,
+                "start_time": str(t.start_time) if t.start_time else None,
+                "end_time": str(t.end_time) if t.end_time else None,
+            }
+            for t in tasks
+        ]
+    }
 
 
 # ==================== 内部执行逻辑 ====================
@@ -157,7 +156,7 @@ def _execute_task(task_id: int, steps: list):
         if task:
             task.status = 3
             task.end_time = datetime.now()
-            task.log_path = str(e)
+            task.log_path = str(e)[:5000]  # 截断，避免极端情况超长
         db.commit()
 
     finally:
