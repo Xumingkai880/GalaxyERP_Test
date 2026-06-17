@@ -30,4 +30,5 @@ export const taskApi = {
   run: (data)   => http.post('/task/run', data),
   get: (id)     => http.get(`/task/${id}`),
   list: ()      => http.get('/task/list/all'),
+  clear: ()     => http.delete('/task/clear'),
 }

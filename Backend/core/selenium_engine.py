@@ -33,8 +33,9 @@ from selenium.common.exceptions import (
 )
 
 # ---- 直接导入 Page Object ----
-from core.config import BASE_URL, TEST_ACCOUNTS
+from core.config import BASE_URL, TEST_ACCOUNTS, ORDER_FILE, WAYBILL_FILE
 from core.pages.login_page import LoginPage
+from core.pages.import_order_page import ImportOrderPage
 
 # ===================== 配置 =====================
 
@@ -190,9 +191,11 @@ class SeleniumRunner:
             elif action == "login":
                 self._do_login(step)
 
-            # ---- 新增业务操作模板 ----
-            # elif action == "your_action":
-            #     self._do_your_action(step)
+            elif action == "import_order":
+                self._do_import_order(step)
+
+            elif action == "import_waybill":
+                self._do_import_waybill(step)
 
             else:
                 raise ValueError(f"不支持的操作类型: {action}")
@@ -220,8 +223,8 @@ class SeleniumRunner:
     # ---------- 预置业务操作 ----------
 
     def _do_login(self, step: dict):
-        """使用预置账户登录 GalaxyERP"""
-        role = step.get("role", "supply")
+        """使用预置账户登录 GalaxyERP（默认分销用户）"""
+        role = step.get("role", "dist")  # 默认为分销用户
         acc = TEST_ACCOUNTS[1] if role == "dist" else TEST_ACCOUNTS[0]
 
         page = LoginPage(self.driver)
@@ -234,11 +237,21 @@ class SeleniumRunner:
         page.wait_for_login_success()
         print(f"✅ {acc['name']} 登录成功")
 
-    # ---- 新增业务操作方法模板 ----
-    # def _do_your_action(self, step: dict):
-    #     """你的业务操作"""
-    #     page = YourPage(self.driver)
-    #     page.your_method(step.get("param", "default"))
+    # ---- 导入订单 ----
+
+    def _do_import_order(self, step: dict):
+        """导入订单：导航 + 点击导入按钮 + 上传文件 + 确认"""
+        file_path = step.get("file_path", ORDER_FILE)
+        page = ImportOrderPage(self.driver)
+        page.import_order(file_path)
+
+    # ---- 导入面单 ----
+
+    def _do_import_waybill(self, step: dict):
+        """导入面单：导航待处理 + 批量操作 + 导入运单 + 上传 + 确认"""
+        file_path = step.get("file_path", WAYBILL_FILE)
+        page = ImportOrderPage(self.driver)
+        page.import_waybill(file_path)
 
     # ---------- 元素操作 ----------
 

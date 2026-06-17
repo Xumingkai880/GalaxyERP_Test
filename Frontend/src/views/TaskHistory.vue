@@ -2,31 +2,65 @@
   <div class="page">
     <div class="page-header">
       <h2>执行历史</h2>
-      <el-button @click="fetchTasks" :loading="loading">
-        <el-icon><Refresh /></el-icon> 刷新
-      </el-button>
+      <div class="header-actions">
+        <el-button @click="fetchTasks" :loading="loading">
+          <el-icon><Refresh /></el-icon> 刷新
+        </el-button>
+        <el-popconfirm
+          title="确定要清空所有执行记录和截图吗？此操作不可恢复"
+          confirm-button-text="确认清空"
+          cancel-button-text="取消"
+          @confirm="clearAll"
+        >
+          <template #reference>
+            <el-button type="danger" :loading="clearing" plain>
+              <el-icon><Delete /></el-icon> 一键清空
+            </el-button>
+          </template>
+        </el-popconfirm>
+      </div>
     </div>
 
-    <el-card>
-      <el-table :data="tasks" stripe v-loading="loading" style="width:100%">
-        <el-table-column prop="id" label="任务ID" width="70" />
-        <el-table-column prop="case_id" label="用例ID" width="80" />
-        <el-table-column label="状态" min-width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">
-              {{ statusLabel(row.status) }}
+    <!-- 按用例分组折叠 -->
+    <el-collapse v-model="activeGroups" v-loading="loading">
+      <el-collapse-item
+        v-for="group in groupedTasks"
+        :key="group.case_id"
+        :name="group.case_id"
+      >
+        <template #title>
+          <div class="group-title">
+            <span class="case-name">{{ group.case_name }}</span>
+            <el-tag size="small" type="info" effect="plain" style="margin-left:12px">
+              {{ group.tasks.length }} 次执行
             </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="start_time" label="开始时间" min-width="150" />
-        <el-table-column prop="end_time" label="结束时间" min-width="150" />
-        <el-table-column label="操作" width="80" fixed="right">
-          <template #default="{ row }">
-            <el-button text type="primary" @click="showDetail(row)">详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+            <span class="case-meta">用例ID: {{ group.case_id }}</span>
+            <span class="case-meta">最近执行: {{ group.tasks[0]?.start_time || '-' }}</span>
+          </div>
+        </template>
+
+        <el-table :data="group.tasks" stripe size="small" style="width:100%">
+          <el-table-column prop="id" label="任务ID" width="70" />
+          <el-table-column label="状态" min-width="90">
+            <template #default="{ row }">
+              <el-tag :type="statusTagType(row.status)" size="small">
+                {{ statusLabel(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="start_time" label="开始时间" min-width="150" />
+          <el-table-column prop="end_time" label="结束时间" min-width="150" />
+          <el-table-column label="操作" width="80" fixed="right">
+            <template #default="{ row }">
+              <el-button text type="primary" size="small" @click="showDetail(row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-collapse-item>
+    </el-collapse>
+
+    <!-- 无数据 -->
+    <el-empty v-if="!loading && groupedTasks.length === 0" description="暂无执行记录" />
 
     <!-- 详情抽屉 -->
     <el-drawer
@@ -93,15 +127,35 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { taskApi } from '@/api/index.js'
 
 const loading = ref(false)
+const clearing = ref(false)
 const tasks = ref([])
+const activeGroups = ref([])
 const drawerVisible = ref(false)
 const detail = ref(null)
 
 const statusLabel = (s) => ({ 0: '待执行', 1: '执行中', 2: '成功', 3: '步骤失败', 4: '异常崩溃' }[s] || '未知')
 const statusTagType = (s) => ({ 2: 'success', 3: 'danger', 4: 'danger', 1: 'warning' }[s] || 'info')
+
+// 按 case_id 分组
+const groupedTasks = computed(() => {
+  const map = {}
+  for (const t of tasks.value) {
+    const cid = t.case_id
+    if (!map[cid]) {
+      map[cid] = {
+        case_id: cid,
+        case_name: t.case_name || `用例#${cid}`,
+        tasks: [],
+      }
+    }
+    map[cid].tasks.push(t)
+  }
+  return Object.values(map)
+})
 
 const parsedLog = computed(() => {
   if (!detail.value?.result_log) return []
@@ -113,9 +167,21 @@ async function fetchTasks() {
   loading.value = true
   try {
     const res = await taskApi.list()
-    tasks.value = (res.tasks || []).reverse()  // 最新任务排前面
+    tasks.value = (res.tasks || []).reverse()
+    activeGroups.value = [...new Set(tasks.value.map(t => t.case_id))]
   } finally {
     loading.value = false
+  }
+}
+
+async function clearAll() {
+  clearing.value = true
+  try {
+    await taskApi.clear()
+    tasks.value = []
+    ElMessage.success('已清空所有执行记录')
+  } finally {
+    clearing.value = false
   }
 }
 
@@ -137,7 +203,26 @@ onMounted(fetchTasks)
   margin-bottom: 16px;
 }
 .page-header h2 { font-size: 20px; color: #303133; }
+.header-actions { display: flex; gap: 10px; }
 
+/* 分组标题 */
+.group-title {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.case-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+.case-meta {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 20px;
+}
+
+/* 详情 */
 .detail { padding: 8px; }
 
 .section-title {

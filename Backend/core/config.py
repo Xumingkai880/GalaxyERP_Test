@@ -24,3 +24,9 @@ TEST_ACCOUNTS = [
         "password": os.getenv("DIST_PASSWORD", "admin123"),
     },
 ]
+
+# 测试文件路径
+FILES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "files")
+ORDER_FILE = os.path.join(FILES_DIR, "导出订单包裹-20260325135831.xlsx")  # 订单导入测试文件
+WAYBILL_FILE = os.path.join(FILES_DIR, "面单(1).pdf")  # 面单导入测试文件
+os.makedirs(FILES_DIR, exist_ok=True)

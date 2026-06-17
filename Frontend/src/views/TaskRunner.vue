@@ -40,7 +40,9 @@
                 placeholder='示例：
 [
   {"action": "open_url", "url": "https://mes.nat.zhsvr.com"},
-  {"action": "login", "role": "supply"}
+  {"action": "login", "role": "dist"},
+  {"action": "import_order", "file_path": "订单Excel路径"},
+  {"action": "import_waybill", "file_path": "面单PDF路径"}
 ]'
                 font-family="monospace"
               />
@@ -87,14 +89,14 @@
               <div
                 v-for="(step, i) in parsedLog"
                 :key="i"
-                :class="['log-row', step.status === 'error' ? 'log-error' : 'log-ok']"
+                :class="['log-row', step.status === 'fail' ? 'log-error' : 'log-ok']"
               >
                 <span class="log-index">{{ i + 1 }}</span>
                 <span class="log-action">{{ step.action }}</span>
                 <span class="log-desc">{{ step.desc || step.url || step.value || '' }}</span>
                 <el-tag
                   size="small"
-                  :type="step.status === 'ok' ? 'success' : step.status === 'error' ? 'danger' : 'info'"
+                  :type="step.status === 'success' ? 'success' : step.status === 'fail' ? 'danger' : 'info'"
                   style="margin-left:auto; flex-shrink:0"
                 >
                   {{ step.status }}
@@ -228,7 +230,8 @@ const statusLabel = computed(() => {
 const parsedLog = computed(() => {
   if (!result.value?.result_log) return []
   try {
-    return JSON.parse(result.value.result_log)
+    const data = JSON.parse(result.value.result_log)
+    return data.steps || []
   } catch {
     return []
   }

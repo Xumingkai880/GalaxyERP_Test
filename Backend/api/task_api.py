@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import TestTask, TestScreenshot
+from db.models import TestTask, TestScreenshot, TestCase
 from core.selenium_engine import SeleniumRunner
 
 router = APIRouter(prefix="/api/task", tags=["任务管理"])
@@ -94,18 +94,27 @@ def get_task_detail(task_id: int, db: Session = Depends(get_db)):
 
 @router.get("/list/all")
 def list_tasks(db: Session = Depends(get_db)):
-    """返回最近 50 条任务"""
+    """返回最近 50 条任务（含用例名，供前端分组用）"""
     tasks = (
         db.query(TestTask)
         .order_by(TestTask.id.desc())
         .limit(50)
         .all()
     )
+
+    # 批量查用例名，避免 N+1
+    case_ids = {t.case_id for t in tasks}
+    case_map = {}
+    if case_ids:
+        cases = db.query(TestCase).filter(TestCase.id.in_(case_ids)).all()
+        case_map = {c.id: c.case_name for c in cases}
+
     return {
         "tasks": [
             {
                 "id": t.id,
                 "case_id": t.case_id,
+                "case_name": case_map.get(t.case_id, f"用例#{t.case_id}"),
                 "status": t.status,
                 "start_time": str(t.start_time) if t.start_time else None,
                 "end_time": str(t.end_time) if t.end_time else None,
@@ -113,6 +122,15 @@ def list_tasks(db: Session = Depends(get_db)):
             for t in tasks
         ]
     }
+
+
+@router.delete("/clear")
+def clear_all_tasks(db: Session = Depends(get_db)):
+    """一键清空所有任务记录及截图（保留用例）"""
+    deleted_screenshots = db.query(TestScreenshot).delete()
+    deleted_tasks = db.query(TestTask).delete()
+    db.commit()
+    return {"message": "已清空", "deleted_tasks": deleted_tasks, "deleted_screenshots": deleted_screenshots}
 
 
 # ==================== 内部执行逻辑 ====================
