@@ -11,6 +11,8 @@ Selenium 执行引擎 — 自动化测试平台核心
     result = runner.run_steps([
         {"action": "open_url", "url": "https://erp.link"},
         {"action": "login", "role": "supply"},
+        {"action": "import_order", "file_path": "/path/to/order.xlsx", "desc": "导入订单"},
+        {"action": "import_waybill", "file_path": "/path/to/waybill.pdf", "desc": "导入面单"},
         {"action": "click", "loc_type": "css", "loc_value": ".menu-item", "desc": "点击菜单"},
     ])
     runner.close()
@@ -35,7 +37,7 @@ from selenium.common.exceptions import (
 # ---- 直接导入 Page Object ----
 from core.config import BASE_URL, TEST_ACCOUNTS, ORDER_FILE, WAYBILL_FILE
 from core.pages.login_page import LoginPage
-from core.pages.import_order_page import ImportOrderPage
+from core.pages.order_page import OrderPage
 
 # ===================== 配置 =====================
 
@@ -237,20 +239,16 @@ class SeleniumRunner:
         page.wait_for_login_success()
         print(f"✅ {acc['name']} 登录成功")
 
-    # ---- 导入订单 ----
-
     def _do_import_order(self, step: dict):
-        """导入订单：导航 + 点击导入按钮 + 上传文件 + 确认"""
+        """导入订单：导航手工订单页 → 上传 Excel → 确认"""
         file_path = step.get("file_path", ORDER_FILE)
-        page = ImportOrderPage(self.driver)
+        page = OrderPage(self.driver)
         page.import_order(file_path)
 
-    # ---- 导入面单 ----
-
     def _do_import_waybill(self, step: dict):
-        """导入面单：导航待处理 + 批量操作 + 导入运单 + 上传 + 确认"""
+        """导入面单：导航待处理 → 批量操作 → 导入运单 → 上传 PDF → 确认"""
         file_path = step.get("file_path", WAYBILL_FILE)
-        page = ImportOrderPage(self.driver)
+        page = OrderPage(self.driver)
         page.import_waybill(file_path)
 
     # ---------- 元素操作 ----------
