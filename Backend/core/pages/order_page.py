@@ -319,11 +319,12 @@ class OrderPage(BasePage):
     def navigate_to_waiting_process(self):
         """导航到待处理订单界面
 
-        路径：左侧菜单 Shop Orders → Waiting Process（待处理）
+        路径：左侧 Shop Orders 菜单 → Waiting Process（待处理）
+        前提：顶部 Order 标签已被点击（由 import_order 的 navigate_to_handmade_orders 完成）
         """
         print("⏳ 导航到待处理订单界面...")
 
-        # ---- Step 1: 先点击 Shop Orders 展开子菜单 ----
+        # ---- Step 1: 点击 Shop Orders 展开子菜单 ----
         self._click_left_menu("Shop Orders", ["Shop Orders", "Shop", "店铺订单"])
 
         # ---- Step 2: 再点击 Waiting Process ----
