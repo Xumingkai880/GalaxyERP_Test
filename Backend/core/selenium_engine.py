@@ -13,6 +13,7 @@ Selenium 执行引擎 — 自动化测试平台核心
         {"action": "login", "role": "supply"},
         {"action": "import_order", "file_path": "/path/to/order.xlsx", "desc": "导入订单"},
         {"action": "import_waybill", "file_path": "/path/to/waybill.pdf", "desc": "导入面单"},
+        {"action": "arrange_order", "order_no": "EB...", "supplier": "分销测试", "desc": "安排订单"},
         {"action": "click", "loc_type": "css", "loc_value": ".menu-item", "desc": "点击菜单"},
     ])
     runner.close()
@@ -38,6 +39,7 @@ from selenium.common.exceptions import (
 from core.config import BASE_URL, TEST_ACCOUNTS, ORDER_FILE, WAYBILL_FILE
 from core.pages.login_page import LoginPage
 from core.pages.order_page import OrderPage
+from core.pages.arrange_order_page import ArrangeOrderPage
 
 # ===================== 配置 =====================
 
@@ -199,6 +201,9 @@ class SeleniumRunner:
             elif action == "import_waybill":
                 self._do_import_waybill(step)
 
+            elif action == "arrange_order":
+                self._do_arrange_order(step)
+
             else:
                 raise ValueError(f"不支持的操作类型: {action}")
 
@@ -250,6 +255,60 @@ class SeleniumRunner:
         file_path = step.get("file_path", WAYBILL_FILE)
         page = OrderPage(self.driver)
         page.import_waybill(file_path)
+
+    def _do_arrange_order(self, step: dict):
+        """安排订单到供销商（含数量差量验证）：
+
+        Step 0: 登录供销账号 → Waiting Process → 记录 count_before
+        Step 1: 登录分销账号 → Shop Orders → 搜索 → 推送 → 选择供销商 → 确认
+        Step 2: 登录供销账号 → Waiting Process → 验证 count_after == count_before + 1
+        """
+        order_no = step.get("order_no", "")
+        supplier = step.get("supplier", "分销测试")
+
+        if not order_no:
+            raise ValueError("arrange_order 需要指定 order_no 参数")
+
+        supply_acc = TEST_ACCOUNTS[0]
+        dist_acc = TEST_ACCOUNTS[1]
+        login_page = LoginPage(self.driver)
+        page = ArrangeOrderPage(self.driver)
+
+        # ---- Step 0: 供销侧记录推送前数量 ----
+        print("\n🔄 Step 0: 登录供销账号，记录推送前待处理数量...")
+        login_page.open(BASE_URL)
+        login_page.perform_login(
+            tenant=supply_acc["tenant"],
+            username=supply_acc["username"],
+            password=supply_acc["password"],
+        )
+        login_page.wait_for_login_success()
+        print(f"✅ {supply_acc['name']} 登录成功")
+        count_before = page.get_waiting_process_count()
+
+        # ---- Step 1: 分销侧推送 ----
+        print("\n🔄 Step 1: 切换到分销账号进行推送...")
+        login_page.open(BASE_URL)
+        login_page.perform_login(
+            tenant=dist_acc["tenant"],
+            username=dist_acc["username"],
+            password=dist_acc["password"],
+        )
+        login_page.wait_for_login_success()
+        print(f"✅ {dist_acc['name']} 登录成功")
+        page.arrange_order_dist_side(order_no, supplier)
+
+        # ---- Step 2: 供销侧验证 ----
+        print("\n🔄 Step 2: 切换到供销账号验证结果...")
+        login_page.open(BASE_URL)
+        login_page.perform_login(
+            tenant=supply_acc["tenant"],
+            username=supply_acc["username"],
+            password=supply_acc["password"],
+        )
+        login_page.wait_for_login_success()
+        print(f"✅ {supply_acc['name']} 登录成功")
+        page.verify_arrange_in_supply(order_no, count_before)
 
     # ---------- 元素操作 ----------
 
