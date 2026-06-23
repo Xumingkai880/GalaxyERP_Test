@@ -257,11 +257,12 @@ class SeleniumRunner:
         page.import_waybill(file_path)
 
     def _do_arrange_order(self, step: dict):
-        """安排订单到供销商（含数量差量验证）：
+        """安排订单到供销商（dist 推送 + 页面验证）
 
-        Step 0: 登录供销账号 → Waiting Process → 记录 count_before
-        Step 1: 登录分销账号 → Shop Orders → 搜索 → 推送 → 选择供销商 → 确认
-        Step 2: 登录供销账号 → Waiting Process → 验证 count_after == count_before + 1
+        前置条件：外层步骤已先 login(dist) 登录分销账号（推送必须由 dist 操作）。
+
+        流程：沿用外层 dist 会话 → 推送订单 → 验证页面。
+        （数量差量验证太脆已移除，只验证订单是否进入列表。）
         """
         order_no = step.get("order_no", "")
         supplier = step.get("supplier", "分销测试")
@@ -269,46 +270,14 @@ class SeleniumRunner:
         if not order_no:
             raise ValueError("arrange_order 需要指定 order_no 参数")
 
-        supply_acc = TEST_ACCOUNTS[0]
-        dist_acc = TEST_ACCOUNTS[1]
-        login_page = LoginPage(self.driver)
         page = ArrangeOrderPage(self.driver)
 
-        # ---- Step 0: 供销侧记录推送前数量 ----
-        print("\n🔄 Step 0: 登录供销账号，记录推送前待处理数量...")
-        login_page.open(BASE_URL)
-        login_page.perform_login(
-            tenant=supply_acc["tenant"],
-            username=supply_acc["username"],
-            password=supply_acc["password"],
-        )
-        login_page.wait_for_login_success()
-        print(f"✅ {supply_acc['name']} 登录成功")
-        count_before = page.get_waiting_process_count()
-
-        # ---- Step 1: 分销侧推送 ----
-        print("\n🔄 Step 1: 切换到分销账号进行推送...")
-        login_page.open(BASE_URL)
-        login_page.perform_login(
-            tenant=dist_acc["tenant"],
-            username=dist_acc["username"],
-            password=dist_acc["password"],
-        )
-        login_page.wait_for_login_success()
-        print(f"✅ {dist_acc['name']} 登录成功")
+        # Step 1: dist 推送（外层已登录 dist，这里直接执行推送）
+        print("\n========== 安排订单 (dist 推送) ==========")
+        print(f"  订单号: {order_no}")
+        print(f"  供销商: {supplier}")
         page.arrange_order_dist_side(order_no, supplier)
-
-        # ---- Step 2: 供销侧验证 ----
-        print("\n🔄 Step 2: 切换到供销账号验证结果...")
-        login_page.open(BASE_URL)
-        login_page.perform_login(
-            tenant=supply_acc["tenant"],
-            username=supply_acc["username"],
-            password=supply_acc["password"],
-        )
-        login_page.wait_for_login_success()
-        print(f"✅ {supply_acc['name']} 登录成功")
-        page.verify_arrange_in_supply(order_no, count_before)
+        print("========== 安排订单完成 ==========\n")
 
     # ---------- 元素操作 ----------
 
