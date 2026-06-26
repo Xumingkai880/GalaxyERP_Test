@@ -40,6 +40,7 @@ from core.config import BASE_URL, TEST_ACCOUNTS, ORDER_FILE, WAYBILL_FILE
 from core.pages.login_page import LoginPage
 from core.pages.order_page import OrderPage
 from core.pages.arrange_order_page import ArrangeOrderPage
+from core.pages.production_arrange_page import ProductionArrangePage
 
 # ===================== 配置 =====================
 
@@ -97,6 +98,13 @@ class SeleniumRunner:
         self.wait = WebDriverWait(self.driver, 15)
 
         self.results: list[dict] = []
+        # 用对象 ID 后缀避免多线程/多 task 并发截图命名冲突
+        self._runner_pid = os.getpid()
+        self._runner_seq = 0
+
+    def _next_seq(self) -> int:
+        self._runner_seq += 1
+        return self._runner_seq
 
     # ---------- 公开入口 ----------
 
@@ -150,7 +158,9 @@ class SeleniumRunner:
 
         try:
             if action == "open_url":
-                self.driver.get(step["url"])
+                # seed 脚本可能不传 url 字段（设计 bug），引擎层兜底用 config 默认值
+                url = step.get("url") or BASE_URL
+                self.driver.get(url)
                 time.sleep(2)
 
             elif action == "click":
@@ -203,6 +213,9 @@ class SeleniumRunner:
 
             elif action == "arrange_order":
                 self._do_arrange_order(step)
+
+            elif action == "arrange_production":
+                self._do_arrange_production(step)
 
             else:
                 raise ValueError(f"不支持的操作类型: {action}")
@@ -279,6 +292,22 @@ class SeleniumRunner:
         page.arrange_order_dist_side(order_no, supplier)
         print("========== 安排订单完成 ==========\n")
 
+    def _do_arrange_production(self, step: dict):
+        """安排生产（供销侧推送订单到生产线）
+
+        前置条件：外层步骤已先 login(supply) 登录供销账号。
+
+        流程：沿用外层 supply 会话 → 导航到 Waiting Arrange → 搜索 → 勾选 →
+              Production Arrange 下拉 → Arrange selected orders。
+        """
+        order_no = step.get("order_no", "")
+
+        if not order_no:
+            raise ValueError("arrange_production 需要指定 order_no 参数")
+
+        page = ProductionArrangePage(self.driver)
+        page.arrange_production(order_no)
+
     # ---------- 元素操作 ----------
 
     def _build_locator(self, step: dict) -> tuple:
@@ -322,8 +351,10 @@ class SeleniumRunner:
     # ---------- 截图 ----------
 
     def _screenshot(self, label: str) -> str:
+        # 文件名 = 标签_进程ID_实例序号_时间戳.png
+        # 三层组合确保多 task 并发时几乎不可能撞名
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"{label}_{timestamp}.png"
+        filename = f"{label}_p{self._runner_pid}_s{self._next_seq()}_{timestamp}.png"
         filepath = os.path.join(SCREENSHOT_DIR, filename)
         try:
             self.driver.save_screenshot(filepath)

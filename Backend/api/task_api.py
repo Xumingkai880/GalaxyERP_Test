@@ -34,8 +34,16 @@ def run_task(data: dict, db: Session = Depends(get_db)):
     Response:
         {"task_id": 123, "message": "任务已创建，正在执行中..."}
     """
-    case_id = data.get("case_id", 0)
+    case_id = int(data.get("case_id", 0) or 0)
     steps = data.get("steps", [])
+    # 兼容前端忘 JSON.parse 的情况：steps 可能是 JSON 字符串
+    if isinstance(steps, str):
+        try:
+            steps = json.loads(steps) if steps.strip() else []
+        except json.JSONDecodeError:
+            raise ValueError(f"steps 字段不是合法 JSON: {steps[:200]}")
+    if not isinstance(steps, list):
+        raise ValueError(f"steps 字段必须为 list 或 JSON 字符串，实际类型: {type(steps).__name__}")
 
     # 1. 入库：创建任务记录（状态=运行中）
     task = TestTask(
